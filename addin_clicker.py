@@ -74,20 +74,11 @@ def click_excel_addin_button(button_caption):
         # 1. Get data
         data_rows = get_data_from_a_file(excel, a_fullpath)
         
-        # Adjust loop count: total_rows (user request reverted the -1 logic)
-        # Data writing loop should still range over len(data_rows)
-        
-        click_count = len(data_rows)
-        # if click_count < 0: click_count = 0 # Safety not really needed if len >=0 but valid
-        
-        print(f"データ行数: {len(data_rows)}, 追加実行回数: {click_count}")
-
         if len(data_rows) == 0:
             print("追加すべき行数が0のため、スキップします。")
             continue
 
         # Check if D-3 file is actively open in Excel
-        # Simple name check
         target_wb = None
         try:
             for wb in excel.Workbooks:
@@ -104,8 +95,24 @@ def click_excel_addin_button(button_caption):
         
         print(f"対象ファイルが開かれていることを確認しました: {filename}")
         target_wb.Activate()
+
+        # Check for existing sheets
+        current_sheet_count = 0
+        try:
+            # Pattern for sheets like "様式D-3-1", "様式D-3-2"...
+            sheet_pattern = re.compile(r"^様式D-3-\d+$")
+            for sht in target_wb.Sheets:
+                if sheet_pattern.match(sht.Name):
+                    current_sheet_count += 1
+        except Exception as e:
+            print(f"シート数の確認中にエラー: {e}")
+
+        needed_sheet_count = len(data_rows)
+        clicks_to_perform = max(0, needed_sheet_count - current_sheet_count)
         
-        # Find and click button 'click_count' times
+        print(f"データ行数: {needed_sheet_count}, 既存シート数: {current_sheet_count}, 追加実行回数: {clicks_to_perform}")
+        
+        # Find and click button 'clicks_to_perform' times
         button_found_once = False
         target_control = None
         
@@ -129,16 +136,18 @@ def click_excel_addin_button(button_caption):
             if target_control: break
         
         if target_control:
-            print(f"ボタンが見つかりました。{click_count}回 実行します。")
-            
-            for i in range(click_count):
-                print(f"シート作成実行中... ({i+1}/{click_count})")
-                try:
-                    target_control.Execute()
-                    time.sleep(2) 
-                except Exception as e:
-                    print(f"実行中にエラーが発生しました: {e}")
-                    break
+            if clicks_to_perform > 0:
+                print(f"ボタンが見つかりました。{clicks_to_perform}回 実行します。")
+                for i in range(clicks_to_perform):
+                    print(f"シート作成実行中... ({i+1}/{clicks_to_perform})")
+                    try:
+                        target_control.Execute()
+                        time.sleep(2) 
+                    except Exception as e:
+                        print(f"実行中にエラーが発生しました: {e}")
+                        break
+            else:
+                print(f"ボタンが見つかりましたが、追加実行回数が0回のためクリックしません。")
             
             # データの転記処理
             print("データの転記を開始します...")
